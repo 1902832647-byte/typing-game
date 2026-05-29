@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⌨️ 打字速度挑战</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --green: #00ff41;
+    --dim-green: #00b32c;
+    --dark-green: #003b0f;
+    --bg: #0a0a0a;
+    --panel: #0d1a0d;
+    --border: #1a4a1a;
+    --red: #ff3333;
+    --yellow: #ffdd00;
+    --cyan: #00ffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* 扫描线效果 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,65,0.03) 2px,
+      rgba(0,255,65,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* 闪烁扫描线 */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100%;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, rgba(0,255,65,0.08), transparent);
+    animation: scanline 6s linear infinite;
+    pointer-events: none;
+    z-index: 101;
+  }
+
+  @keyframes scanline {
+    0% { top: -10%; }
+    100% { top: 110%; }
+  }
+
+  .container {
+    width: 90%;
+    max-width: 750px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .terminal-header {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.red { background: #ff5f57; }
+  .dot.yellow { background: #febc2e; }
+  .dot.green { background: #28c840; }
+
+  .terminal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--dim-green);
+    margin-left: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .terminal-body {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    padding: 32px;
+    box-shadow: 0 0 40px rgba(0,255,65,0.1), inset 0 0 60px rgba(0,0,0,0.5);
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(20px, 4vw, 32px);
+    font-weight: 900;
+    color: var(--green);
+    text-align: center;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(0,255,65,0.8), 0 0 40px rgba(0,255,65,0.3);
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--dim-green);
+    font-size: 12px;
+    letter-spacing: 2px;
+    margin-bottom: 28px;
+  }
+
+  /* 统计栏 */
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 24px;
+    gap: 12px;
+  }
+
+  .stat-box {
+    flex: 1;
+    background: var(--dark-green);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 8px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--dim-green);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: clamp(18px, 3vw, 28px);
+    font-weight: bold;
+    font-family: 'Orbitron', monospace;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(0,255,65,0.6);
+  }
+
+  .stat-value.red { color: var(--red); text-shadow: 0 0 10px rgba(255,51,51,0.6); }
+  .stat-value.yellow { color: var(--yellow); text-shadow: 0 0 10px rgba(255,221,0,0.6); }
+  .stat-value.cyan { color: var(--cyan); text-shadow: 0 0 10px rgba(0,255,255,0.6); }
+
+  /* 进度条 */
+  .progress-bar-wrap {
+    background: var(--dark-green);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    height: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--dim-green), var(--green), var(--cyan));
+    box-shadow: 0 0 10px var(--green);
+    transition: width 0.3s ease;
+    border-radius: 2px;
+  }
+
+  /* 显示文字区域 */
+  .text-display {
+    background: #060f06;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    font-size: clamp(14px, 2vw, 18px);
+    line-height: 1.8;
+    margin-bottom: 16px;
+    min-height: 90px;
+    letter-spacing: 1px;
+    position: relative;
+  }
+
+  .char { transition: color 0.05s; }
+  .char.correct { color: var(--green); text-shadow: 0 0 6px rgba(0,255,65,0.5); }
+  .char.wrong { color: var(--red); background: rgba(255,51,51,0.15); border-radius: 2px; text-shadow: 0 0 6px rgba(255,51,51,0.5); }
+  .char.current {
+    color: var(--bg);
+    background: var(--green);
+    border-radius: 2px;
+    box-shadow: 0 0 10px var(--green);
+    animation: blink 0.8s step-end infinite;
+  }
+  .char.pending { color: #2a5a2a; }
+
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* 输入框 */
+  .input-area {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .input-prompt {
+    color: var(--dim-green);
+    font-size: 14px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: #060f06;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(14px, 2vw, 18px);
+    padding: 14px 16px;
+    outline: none;
+    letter-spacing: 2px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    caret-color: var(--green);
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 15px rgba(0,255,65,0.2);
+  }
+
+  input[type="text"].error {
+    border-color: var(--red);
+    box-shadow: 0 0 15px rgba(255,51,51,0.2);
+    animation: shake 0.2s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* 按钮 */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  button {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    padding: 10px 24px;
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    transform: translateY(100%);
+    transition: transform 0.2s;
+  }
+
+  button span { position: relative; z-index: 1; }
+
+  button:hover::before { transform: translateY(0); }
+  button:hover { color: var(--bg); box-shadow: 0 0 20px rgba(0,255,65,0.4); }
+
+  button.secondary { border-color: var(--dim-green); color: var(--dim-green); }
+  button.secondary::before { background: var(--dim-green); }
+
+  button.danger { border-color: var(--red); color: var(--red); }
+  button.danger::before { background: var(--red); }
+  button.danger:hover { color: white; }
+
+  /* 难度选择 */
+  .difficulty-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .diff-btn {
+    padding: 6px 16px;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .diff-btn.active {
+    background: var(--dark-green);
+    color: var(--cyan);
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0,255,255,0.3);
+  }
+
+  .diff-btn.active::before { background: transparent; }
+  .diff-btn.active:hover { color: var(--cyan); }
+
+  /* 结果面板 */
+  .result-panel {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .result-panel.show { display: block; }
+
+  .result-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 16px;
+    animation: glitch 2s infinite;
+  }
+
+  @keyframes glitch {
+    0%, 90%, 100% { text-shadow: 0 0 20px currentColor; transform: none; }
+    92% { transform: translate(-2px, 0); text-shadow: -2px 0 var(--cyan), 2px 0 var(--red); }
+    94% { transform: translate(2px, 0); text-shadow: 2px 0 var(--cyan), -2px 0 var(--red); }
+    96% { transform: none; }
+  }
+
+  .result-grade {
+    font-family: 'Orbitron', monospace;
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .result-msg { color: var(--dim-green); margin-bottom: 24px; font-size: 13px; letter-spacing: 1px; }
+
+  /* 历史记录 */
+  .history {
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .history-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--dim-green);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .history-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .history-item {
+    background: var(--dark-green);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--dim-green);
+    transition: color 0.2s;
+  }
+
+  .history-item.best { border-color: var(--yellow); color: var(--yellow); }
+
+  /* 粒子 */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 12px;
+    color: var(--green);
+    opacity: 0;
+    z-index: 200;
+    font-family: 'Share Tech Mono', monospace;
+    animation: float-up 1s ease-out forwards;
+  }
+
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(0.5); }
+  }
+
+  .countdown-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,10,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    z-index: 5;
+    font-family: 'Orbitron', monospace;
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--green);
+    text-shadow: 0 0 30px var(--green);
+    animation: none;
+  }
+
+  .countdown-overlay.hidden { display: none; }
+
+  /* 时间条 */
+  .time-bar-wrap {
+    background: var(--dark-green);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    height: 4px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .time-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), var(--yellow), var(--green));
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    transition: background-position 1s linear, width 1s linear;
+    border-radius: 2px;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="terminal-header">
+    <div class="dot red"></div>
+    <div class="dot yellow"></div>
+    <div class="dot green"></div>
+    <span class="terminal-title">typing_challenge.exe — v2.0</span>
+  </div>
+
+  <div class="terminal-body">
+    <h1>⌨ 打字挑战</h1>
+    <p class="subtitle">> TYPING SPEED TEST / 测试你的打字速度</p>
+
+    <!-- 统计 -->
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">速度 WPM</div>
+        <div class="stat-value cyan" id="wpm">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">准确率</div>
+        <div class="stat-value" id="accuracy">100%</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">错误</div>
+        <div class="stat-value red" id="errors">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">时间</div>
+        <div class="stat-value yellow" id="timer">60s</div>
+      </div>
+    </div>
+
+    <!-- 进度 -->
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress"></div>
+    </div>
+    <div class="time-bar-wrap">
+      <div class="time-bar" id="time-bar"></div>
+    </div>
+
+    <br>
+
+    <!-- 难度 -->
+    <div class="difficulty-row">
+      <button class="diff-btn active secondary" onclick="setDifficulty('easy')" id="d-easy"><span>简单</span></button>
+      <button class="diff-btn secondary" onclick="setDifficulty('medium')" id="d-medium"><span>中等</span></button>
+      <button class="diff-btn secondary" onclick="setDifficulty('hard')" id="d-hard"><span>困难</span></button>
+      <button class="diff-btn secondary" onclick="setDifficulty('code')" id="d-code"><span>代码</span></button>
+    </div>
+
+    <!-- 文本显示 -->
+    <div class="text-display" id="text-display">
+      <div class="countdown-overlay hidden" id="countdown">GO!</div>
+      <span id="chars"></span>
+    </div>
+
+    <!-- 结果面板 -->
+    <div class="result-panel" id="result">
+      <div class="result-title" id="result-title" style="color: var(--green)">// COMPLETE</div>
+      <div class="result-grade" id="result-grade" style="color: var(--green)">S</div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="btn-row">
+        <button onclick="startGame()"><span>再来一次</span></button>
+      </div>
+    </div>
+
+    <!-- 输入 -->
+    <div class="input-area" id="input-area">
+      <div class="input-prompt">> 在此输入 / TYPE HERE_</div>
+      <input type="text" id="typing-input" placeholder="按任意键开始..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-row">
+      <button onclick="startGame()"><span>开始 / START</span></button>
+      <button class="secondary" onclick="resetGame()"><span>重置 / RESET</span></button>
+    </div>
+
+    <!-- 历史 -->
+    <div class="history" id="history-section" style="display:none">
+      <div class="history-title">> 历史记录 / HISTORY</div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEXTS = {
+  easy: [
+    "猫咪喜欢睡觉和玩耍。狗狗总是很开心。",
+    "今天天气很好，阳光明媚，微风轻拂。",
+    "我喜欢喝咖啡，看书，听音乐，享受生活。",
+    "春天来了，花儿开了，鸟儿唱起了歌曲。",
+    "学习编程很有趣，可以创造出很多好玩的东西。",
+  ],
+  medium: [
+    "编程是一门艺术，也是一门科学。好的程序员需要不断学习和实践，才能写出优雅的代码。",
+    "人工智能正在改变我们的生活方式。从语音助手到自动驾驶汽车，技术进步日新月异。",
+    "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+    "In the beginning there was code, and the code was good. Developers typed furiously.",
+    "Open source software powers the modern internet. Collaboration makes great things happen.",
+  ],
+  hard: [
+    "Cryptography ensures data integrity through mathematical algorithms. SHA-256 produces a 256-bit hash value uniquely representing input data.",
+    "Quantum computing leverages superposition and entanglement to process information exponentially faster than classical binary computers.",
+    "神经网络通过反向传播算法调整权重参数，最小化损失函数，从而实现对复杂模式的识别与分类。机器学习改变了软件开发范式。",
+    "分布式系统面临CAP定理的约束：一致性、可用性和分区容错性三者不可兼得，架构师必须根据业务需求做出权衡取舍。",
+  ],
+  code: [
+    "const fibonacci = n => n <= 1 ? n : fibonacci(n-1) + fibonacci(n-2);",
+    "async function fetchData(url) { const res = await fetch(url); return res.json(); }",
+    "SELECT users.name, COUNT(orders.id) FROM users LEFT JOIN orders ON users.id = orders.user_id GROUP BY users.id;",
+    "docker run -d -p 8080:80 --name myapp --restart always nginx:latest",
+    "git commit -m 'feat: add user authentication with JWT tokens and refresh logic'",
+    "import { useState, useEffect } from 'react'; // hooks make components powerful!",
+  ]
+};
+
+const DURATIONS = { easy: 60, medium: 60, hard: 90, code: 60 };
+
+let currentText = '';
+let currentDifficulty = 'easy';
+let startTime = null;
+let timerInterval = null;
+let timeLeft = 60;
+let totalDuration = 60;
+let errors = 0;
+let totalTyped = 0;
+let started = false;
+let finished = false;
+let history = [];
+
+const charsEl = document.getElementById('chars');
+const inputEl = document.getElementById('typing-input');
+const wpmEl = document.getElementById('wpm');
+const accEl = document.getElementById('accuracy');
+const errorsEl = document.getElementById('errors');
+const timerEl = document.getElementById('timer');
+const progressEl = document.getElementById('progress');
+const timeBarEl = document.getElementById('time-bar');
+const resultEl = document.getElementById('result');
+const inputAreaEl = document.getElementById('input-area');
+const countdownEl = document.getElementById('countdown');
+
+function setDifficulty(d) {
+  currentDifficulty = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('d-' + d).classList.add('active');
+  resetGame();
+}
+
+function loadText() {
+  const texts = TEXTS[currentDifficulty];
+  currentText = texts[Math.floor(Math.random() * texts.length)];
+  renderChars();
+}
+
+function renderChars() {
+  charsEl.innerHTML = '';
+  currentText.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'char ' + (i === 0 ? 'current' : 'pending');
+    span.textContent = ch;
+    charsEl.appendChild(span);
+  });
+}
+
+function startGame() {
+  resetGame();
+  countdownEl.classList.remove('hidden');
+  countdownEl.textContent = '3';
+  inputEl.disabled = true;
+  let c = 3;
+  const cd = setInterval(() => {
+    c--;
+    if (c > 0) { countdownEl.textContent = c; }
+    else if (c === 0) { countdownEl.textContent = 'GO!'; }
+    else {
+      clearInterval(cd);
+      countdownEl.classList.add('hidden');
+      inputEl.disabled = false;
+      inputEl.focus();
+    }
+  }, 800);
+}
+
+function resetGame() {
+  clearInterval(timerInterval);
+  started = false;
+  finished = false;
+  errors = 0;
+  totalTyped = 0;
+  startTime = null;
+  totalDuration = DURATIONS[currentDifficulty];
+  timeLeft = totalDuration;
+  inputEl.value = '';
+  inputEl.className = '';
+  inputEl.disabled = false;
+  wpmEl.textContent = '0';
+  accEl.textContent = '100%';
+  errorsEl.textContent = '0';
+  timerEl.textContent = totalDuration + 's';
+  progressEl.style.width = '0%';
+  timeBarEl.style.backgroundPosition = '100% 0';
+  timeBarEl.style.width = '100%';
+  resultEl.classList.remove('show');
+  inputAreaEl.style.display = '';
+  countdownEl.classList.add('hidden');
+  loadText();
+}
+
+function getCharEls() { return document.querySelectorAll('.char'); }
+
+inputEl.addEventListener('input', function(e) {
+  if (finished) return;
+
+  const typed = this.value;
+  const chars = getCharEls();
+  const idx = typed.length;
+
+  if (!started && typed.length > 0) {
+    started = true;
+    startTime = Date.now();
+    startTimer();
+  }
+
+  // 更新字符状态
+  chars.forEach((ch, i) => {
+    ch.className = 'char';
+    if (i < typed.length) {
+      ch.className = 'char ' + (typed[i] === currentText[i] ? 'correct' : 'wrong');
+    } else if (i === typed.length) {
+      ch.className = 'char current';
+    } else {
+      ch.className = 'char pending';
+    }
+  });
+
+  // 错误检测
+  let currentErrors = 0;
+  for (let i = 0; i < typed.length; i++) {
+    if (typed[i] !== currentText[i]) currentErrors++;
+  }
+  errors = currentErrors;
+  totalTyped = Math.max(totalTyped, typed.length);
+
+  errorsEl.textContent = errors;
+
+  // 准确率
+  const acc = totalTyped > 0 ? Math.round(((totalTyped - errors) / totalTyped) * 100) : 100;
+  accEl.textContent = acc + '%';
+  accEl.className = 'stat-value' + (acc >= 90 ? '' : acc >= 70 ? ' yellow' : ' red');
+
+  // 进度
+  const correct = [...typed].filter((c, i) => c === currentText[i]).length;
+  const prog = Math.round((correct / currentText.length) * 100);
+  progressEl.style.width = prog + '%';
+
+  // WPM
+  if (started && startTime) {
+    const elapsed = (Date.now() - startTime) / 60000;
+    const words = correct / 5;
+    const wpm = Math.round(words / elapsed) || 0;
+    wpmEl.textContent = wpm;
+  }
+
+  // 错误抖动
+  if (typed.length > 0 && typed[typed.length-1] !== currentText[typed.length-1]) {
+    this.classList.add('error');
+    setTimeout(() => this.classList.remove('error'), 300);
+    spawnParticle('✗', this, 'var(--red)');
+  }
+
+  // 完成检测
+  if (typed === currentText) {
+    finishGame(true);
+  }
+});
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    timerEl.textContent = timeLeft + 's';
+    const pct = (timeLeft / totalDuration) * 100;
+    timeBarEl.style.width = pct + '%';
+    const bgPos = 100 - pct;
+    timeBarEl.style.backgroundPosition = bgPos + '% 0';
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      finishGame(false);
+    }
+  }, 1000);
+}
+
+function finishGame(completed) {
+  if (finished) return;
+  finished = true;
+  clearInterval(timerInterval);
+  inputEl.disabled = true;
+  inputAreaEl.style.display = 'none';
+
+  const elapsed = startTime ? (Date.now() - startTime) / 60000 : 1;
+  const chars = getCharEls();
+  const typed = inputEl.value;
+  const correct = [...typed].filter((c, i) => c === currentText[i]).length;
+  const wpm = Math.round((correct / 5) / elapsed) || 0;
+  const acc = totalTyped > 0 ? Math.round(((totalTyped - errors) / totalTyped) * 100) : 0;
+
+  // 评级
+  let grade, color, msg;
+  if (!started) { grade = '-'; color = 'var(--dim-green)'; msg = '你还没有开始输入...'; }
+  else if (wpm >= 80 && acc >= 95) { grade = 'S'; color = 'var(--cyan)'; msg = '// 传说级打字机器！你是人还是机器人？'; }
+  else if (wpm >= 60 && acc >= 90) { grade = 'A'; color = 'var(--green)'; msg = '// 优秀！你的打字速度令人印象深刻。'; }
+  else if (wpm >= 40 && acc >= 85) { grade = 'B'; color = 'var(--yellow)'; msg = '// 不错的成绩，继续练习会更好！'; }
+  else if (wpm >= 25 && acc >= 75) { grade = 'C'; color = 'var(--dim-green)'; msg = '// 还有提升空间，加油练习！'; }
+  else { grade = 'D'; color = 'var(--red)'; msg = '// 慢慢来，熟能生巧！'; }
+
+  document.getElementById('result-grade').textContent = grade;
+  document.getElementById('result-grade').style.color = color;
+  document.getElementById('result-grade').style.textShadow = `0 0 30px ${color}`;
+  document.getElementById('result-title').textContent = completed ? '// MISSION COMPLETE' : '// TIME\'S UP';
+  document.getElementById('result-title').style.color = color;
+  document.getElementById('result-msg').innerHTML =
+    `${msg}<br><br>WPM: <span style="color:var(--cyan)">${wpm}</span> &nbsp; 准确率: <span style="color:var(--green)">${acc}%</span> &nbsp; 错误: <span style="color:var(--red)">${errors}</span>`;
+
+  resultEl.classList.add('show');
+
+  // 保存历史
+  if (started) {
+    history.unshift({ wpm, acc, grade });
+    if (history.length > 8) history.pop();
+    renderHistory();
+  }
+}
+
+function renderHistory() {
+  const sec = document.getElementById('history-section');
+  const list = document.getElementById('history-list');
+  if (history.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const maxWpm = Math.max(...history.map(h => h.wpm));
+  list.innerHTML = history.map((h, i) =>
+    `<div class="history-item ${h.wpm === maxWpm && i === history.findIndex(x=>x.wpm===maxWpm) ? 'best' : ''}">
+      ${h.grade} · ${h.wpm}wpm · ${h.acc}%
+    </div>`
+  ).join('');
+}
+
+function spawnParticle(text, anchor, color) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = text;
+  p.style.color = color;
+  const rect = anchor.getBoundingClientRect();
+  p.style.left = (rect.left + Math.random() * 40) + 'px';
+  p.style.top = (rect.top - 10) + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 1000);
+}
+
+// 初始化
+resetGame();
+inputEl.addEventListener('focus', () => { if (!started && !countdownEl.classList.contains('hidden') === false) {} });
+</script>
+</body>
+</html>
